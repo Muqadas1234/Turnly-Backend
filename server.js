@@ -7,7 +7,7 @@ require('./config/db');
 
 // route imports
 const authRoutes = require('./routes/auth.routes');
-
+const adminRoutes = require('./routes/admin.routes');
 const app = express();
 
 // middleware
@@ -16,6 +16,7 @@ app.use(express.json());
 
 // api routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 // health check endpoint
 app.get('/', (req, res) => {
