@@ -1,0 +1,299 @@
+{
+	"info": {
+		"_postman_id": "c1f8a845-8f64-4bf8-a098-b80c102a3df1",
+		"name": "Turnly - Admin APIs",
+		"description": "Collection of all Turnly Admin APIs for local testing in Postman.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Auth - Login as Admin (Auto-saves Token)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"if (jsonData.token) {",
+							"    pm.collectionVariables.set(\"token\", jsonData.token);",
+							"    console.log(\"Admin Token successfully set:\", jsonData.token);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"your_admin_password\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				},
+				"description": "Authenticates as Admin and automatically saves the JWT token into the collection variable 'token'."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Admin - Get Platform Stats",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/stats",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"stats"
+					]
+				},
+				"description": "Returns counts for total hospitals, patients, tokens today, active queues, and tokens issued per hospital."
+			},
+			"response": []
+		},
+		{
+			"name": "3. Admin - Get All Hospitals",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/hospitals",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"hospitals"
+					]
+				},
+				"description": "Fetches all hospital registrations along with status count summary."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Admin - Get Hospitals (Filter by Status)",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/hospitals?status=pending",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"hospitals"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "pending",
+							"description": "Can be pending, approved, or suspended"
+						}
+					]
+				},
+				"description": "Fetches hospitals filtered by status (pending, approved, or suspended)."
+			},
+			"response": []
+		},
+		{
+			"name": "5. Admin - Get Hospital by ID",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/hospitals/1",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"hospitals",
+						"1"
+					]
+				},
+				"description": "Returns full registration and manager details for a specific hospital ID."
+			},
+			"response": []
+		},
+		{
+			"name": "6. Admin - Approve Hospital",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/hospitals/1/approve",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"hospitals",
+						"1",
+						"approve"
+					]
+				},
+				"description": "Updates hospital status to 'approved'."
+			},
+			"response": []
+		},
+		{
+			"name": "7. Admin - Reject Hospital",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"rejectionNote\": \"Missing PMDC medical superintendent license copy.\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/hospitals/1/reject",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"hospitals",
+						"1",
+						"reject"
+					]
+				},
+				"description": "Updates hospital status to 'rejected' with an optional rejection reason."
+			},
+			"response": []
+		},
+		{
+			"name": "8. Admin - Suspend Hospital",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/admin/hospitals/1/suspend",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"hospitals",
+						"1",
+						"suspend"
+					]
+				},
+				"description": "Updates hospital status to 'suspended'."
+			},
+			"response": []
+		}
+	]
+}
