@@ -53,6 +53,14 @@ const setupDatabase = async () => {
             );
         `);
 
+        // Ensure hospital specifications columns exist for fresh and existing databases
+        await pool.query(`
+            ALTER TABLE hospitals 
+            ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'Private hospital',
+            ADD COLUMN IF NOT EXISTS opd_timings VARCHAR(100) DEFAULT '9:00 AM - 8:00 PM',
+            ADD COLUMN IF NOT EXISTS rejection_note TEXT;
+        `);
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS departments (
                 id          SERIAL PRIMARY KEY,
