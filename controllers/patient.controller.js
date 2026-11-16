@@ -31,7 +31,14 @@ exports.getApprovedHospitals = async (req, res) => {
 
         if (search && search.trim().length > 0) {
             params.push(`%${search.trim().toLowerCase()}%`);
-            query += ` AND (LOWER(h.name) LIKE $${params.length} OR LOWER(h.city) LIKE $${params.length} OR LOWER(h.address) LIKE $${params.length})`;
+            query += ` AND (
+                LOWER(h.name) LIKE $${params.length} 
+                OR LOWER(h.city) LIKE $${params.length} 
+                OR LOWER(h.address) LIKE $${params.length}
+                OR LOWER(COALESCE(h.type, '')) LIKE $${params.length}
+                OR LOWER(COALESCE(d.name, '')) LIKE $${params.length}
+                OR LOWER(COALESCE(d.specialization, '')) LIKE $${params.length}
+            )`;
         }
 
         query += ` GROUP BY h.id ORDER BY h.name ASC`;
