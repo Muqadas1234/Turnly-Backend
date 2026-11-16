@@ -6,7 +6,10 @@ async function updateDoctorHours() {
     try {
         // Fetch all doctors that still have the default or null availability_hours
         const result = await pool.query(
-            `SELECT id, name FROM doctors ORDER BY id ASC`
+            `SELECT id, name FROM doctors 
+             WHERE availability_hours IS NULL 
+                OR availability_hours = 'Mon-Sat · 9:00 AM - 5:00 PM'
+             ORDER BY id ASC`
         );
 
         // Sample realistic OPD schedules to assign to existing doctors
@@ -25,7 +28,10 @@ async function updateDoctorHours() {
             const schedule = schedules[i % schedules.length];
 
             await pool.query(
-                `UPDATE doctors SET availability_hours = $1 WHERE id = $2`,
+                `UPDATE doctors SET availability_hours = $1 
+                 WHERE id = $2 
+                   AND (availability_hours IS NULL 
+                        OR availability_hours = 'Mon-Sat · 9:00 AM - 5:00 PM')`,
                 [schedule, doctor.id]
             );
 
