@@ -79,10 +79,13 @@ exports.getHospitalDetails = async (req, res) => {
             [id]
         );
 
+        // Remove internal admin review note from public response
+        const { rejection_note: _rejectionNote, ...hospital } = hospitalResult.rows[0];
+
         return res.status(200).json({
             success: true,
             data: {
-                hospital: hospitalResult.rows[0],
+                hospital,
                 departments: departmentsResult.rows,
                 doctors: doctorsResult.rows
             }

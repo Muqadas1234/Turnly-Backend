@@ -148,7 +148,7 @@ exports.approveHospital = async (req, res) => {
 exports.rejectHospital = async (req, res) => {
     try {
         const { id } = req.params;
-        const { rejectionNote } = req.body;
+        const { rejectionNote } = req.body || {};
 
         const result = await pool.query(
             `UPDATE hospitals 
@@ -227,11 +227,11 @@ exports.getPlatformStats = async (req, res) => {
             WHERE status IN ('waiting', 'in_progress')
         `);
 
-        // Tokens issued per hospital for bar chart
+        // Tokens issued per hospital for bar chart (today's tokens only)
         const tokensPerHospital = await pool.query(`
             SELECT h.name, COUNT(t.id) AS token_count
             FROM hospitals h
-            LEFT JOIN tokens t ON h.id = t.hospital_id
+            LEFT JOIN tokens t ON h.id = t.hospital_id AND DATE(t.created_at) = CURRENT_DATE
             WHERE h.status = 'approved'
             GROUP BY h.id, h.name
             ORDER BY token_count DESC

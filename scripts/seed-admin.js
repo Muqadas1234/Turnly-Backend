@@ -43,6 +43,7 @@ async function seedAdmin() {
     console.log('Role: admin');
   } catch (error) {
     console.error('Error seeding admin user:', error);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }

@@ -11,6 +11,7 @@ async function migrateHospitals() {
     console.log('Hospitals table columns verified and updated successfully.');
   } catch (error) {
     console.error('Migration error:', error);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }

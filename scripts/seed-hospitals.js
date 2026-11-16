@@ -92,6 +92,7 @@ async function seedHospitals() {
     console.log('Sample hospitals seeded successfully.');
   } catch (error) {
     console.error('Error seeding hospitals:', error);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }
