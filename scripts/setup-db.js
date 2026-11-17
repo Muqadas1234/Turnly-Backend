@@ -83,8 +83,15 @@ const setupDatabase = async () => {
                 photo_url           TEXT,
                 avg_consult_minutes INTEGER DEFAULT 10,
                 is_available        BOOLEAN DEFAULT true,
+                availability_hours  VARCHAR(100) DEFAULT 'Mon-Sat · 9:00 AM - 5:00 PM',
                 created_at          TIMESTAMP DEFAULT NOW()
             );
+        `);
+
+        // Ensure availability_hours column exists for existing databases
+        await pool.query(`
+            ALTER TABLE doctors
+            ADD COLUMN IF NOT EXISTS availability_hours VARCHAR(100) DEFAULT 'Mon-Sat · 9:00 AM - 5:00 PM';
         `);
 
         await pool.query(`
