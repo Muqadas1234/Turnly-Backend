@@ -217,10 +217,20 @@ exports.bookToken = async (req, res) => {
 
         const hospital = hospitalResult.rows[0];
 
-        // 3. Format booking date using database CURRENT_DATE convention if not specified
-        let targetDate = bookingDate ? bookingDate.trim() : null;
-        if (!targetDate) {
-            const todayResult = await pool.query(`SELECT CURRENT_DATE::TEXT AS today`);
+        // 3. Validate canonical YYYY-MM-DD booking date or default to database CURRENT_DATE
+        let targetDate;
+        if (bookingDate && typeof bookingDate === 'string' && bookingDate.trim().length > 0) {
+            const trimmedDate = bookingDate.trim();
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(trimmedDate) || isNaN(Date.parse(trimmedDate))) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid booking date format. Expected YYYY-MM-DD (e.g. 2026-11-18)'
+                });
+            }
+            targetDate = trimmedDate;
+        } else {
+            const todayResult = await pool.query('SELECT CURRENT_DATE::TEXT AS today');
             targetDate = todayResult.rows[0].today;
         }
 
@@ -238,11 +248,9 @@ exports.bookToken = async (req, res) => {
         try {
             await client.query('BEGIN');
 
-            // Serialize token allocation per doctor and booking date using transaction advisory lock
-            await client.query(
-                `SELECT pg_advisory_xact_lock(hashtext($1))`,
-                [`booking_${doctor.id}_${targetDate}`]
-            );
+            // Serialize token allocation per doctor and canonical date using transaction advisory lock
+            const lockKey = 'booking_' + doctor.id + '_' + targetDate;
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey]);
 
             // Prevent duplicate waiting tokens for the same patient and doctor on the selected date
             const existingToken = await client.query(
@@ -344,9 +352,19 @@ exports.getDoctorQueueStatus = async (req, res) => {
         const { id } = req.params;
         const { date } = req.query;
 
-        let targetDate = date ? date.trim() : null;
-        if (!targetDate) {
-            const todayResult = await pool.query(`SELECT CURRENT_DATE::TEXT AS today`);
+        let targetDate;
+        if (date && typeof date === 'string' && date.trim().length > 0) {
+            const trimmedDate = date.trim();
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(trimmedDate) || isNaN(Date.parse(trimmedDate))) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid date format. Expected YYYY-MM-DD (e.g. 2026-11-18)'
+                });
+            }
+            targetDate = trimmedDate;
+        } else {
+            const todayResult = await pool.query('SELECT CURRENT_DATE::TEXT AS today');
             targetDate = todayResult.rows[0].today;
         }
 
