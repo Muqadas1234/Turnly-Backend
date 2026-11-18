@@ -1,5 +1,21 @@
 const pool = require('../config/db');
 
+// Validate canonical YYYY-MM-DD date and verify real calendar existence (handling leap years and impossible dates)
+function isValidCalendarDate(dateStr) {
+    if (typeof dateStr !== 'string') return false;
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateStr)) return false;
+
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    return (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+    );
+}
+
 // Fetch all approved hospitals for patients (with search and city filter)
 exports.getApprovedHospitals = async (req, res) => {
     try {
@@ -219,17 +235,26 @@ exports.bookToken = async (req, res) => {
 
         // 3. Validate canonical YYYY-MM-DD booking date or default to database CURRENT_DATE
         let targetDate;
-        if (bookingDate && typeof bookingDate === 'string' && bookingDate.trim().length > 0) {
-            const trimmedDate = bookingDate.trim();
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateRegex.test(trimmedDate) || isNaN(Date.parse(trimmedDate))) {
+        if (bookingDate !== undefined && bookingDate !== null) {
+            if (typeof bookingDate !== 'string') {
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid booking date format. Expected YYYY-MM-DD (e.g. 2026-11-18)'
+                    message: 'Invalid booking date format. Expected a string in YYYY-MM-DD format'
                 });
             }
-            targetDate = trimmedDate;
-        } else {
+            const trimmedDate = bookingDate.trim();
+            if (trimmedDate.length > 0) {
+                if (!isValidCalendarDate(trimmedDate)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid booking date format or impossible calendar date. Expected YYYY-MM-DD (e.g. 2026-11-18)'
+                    });
+                }
+                targetDate = trimmedDate;
+            }
+        }
+
+        if (!targetDate) {
             const todayResult = await pool.query('SELECT CURRENT_DATE::TEXT AS today');
             targetDate = todayResult.rows[0].today;
         }
@@ -353,17 +378,26 @@ exports.getDoctorQueueStatus = async (req, res) => {
         const { date } = req.query;
 
         let targetDate;
-        if (date && typeof date === 'string' && date.trim().length > 0) {
-            const trimmedDate = date.trim();
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateRegex.test(trimmedDate) || isNaN(Date.parse(trimmedDate))) {
+        if (date !== undefined && date !== null) {
+            if (typeof date !== 'string') {
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid date format. Expected YYYY-MM-DD (e.g. 2026-11-18)'
+                    message: 'Invalid date format. Expected a string in YYYY-MM-DD format'
                 });
             }
-            targetDate = trimmedDate;
-        } else {
+            const trimmedDate = date.trim();
+            if (trimmedDate.length > 0) {
+                if (!isValidCalendarDate(trimmedDate)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid date format or impossible calendar date. Expected YYYY-MM-DD (e.g. 2026-11-18)'
+                    });
+                }
+                targetDate = trimmedDate;
+            }
+        }
+
+        if (!targetDate) {
             const todayResult = await pool.query('SELECT CURRENT_DATE::TEXT AS today');
             targetDate = todayResult.rows[0].today;
         }
