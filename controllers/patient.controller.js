@@ -185,7 +185,6 @@ exports.bookToken = async (req, res) => {
 
         const doctor = doctorResult.rows[0];
 
-
         // Block booking if doctor is marked unavailable by manager
         if (!doctor.is_available) {
             return res.status(400).json({
@@ -194,10 +193,19 @@ exports.bookToken = async (req, res) => {
             });
         }
 
-        // 2. Verify hospital exists and is approved
+        // 2. Validate requested hospital ID matches doctor's hospital
+        const parsedHospitalId = parseInt(hospitalId, 10);
+        if (doctor.hospital_id !== parsedHospitalId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Selected doctor does not belong to the specified hospital'
+            });
+        }
+
+        // Verify doctor's hospital exists and is approved
         const hospitalResult = await pool.query(
             `SELECT id, name, status FROM hospitals WHERE id = $1`,
-            [hospitalId]
+            [doctor.hospital_id]
         );
 
         if (hospitalResult.rows.length === 0 || hospitalResult.rows[0].status !== 'approved') {
@@ -209,33 +217,14 @@ exports.bookToken = async (req, res) => {
 
         const hospital = hospitalResult.rows[0];
 
-        // 3. Format booking date (defaults to today)
-        const targetDate = bookingDate ? bookingDate.trim() : new Date().toISOString().split('T')[0];
-
-        // 4. Prevent duplicate waiting tokens for the same patient and doctor on the selected date
-        const existingToken = await pool.query(
-            `SELECT id, token_number FROM tokens 
-             WHERE patient_id = $1 AND doctor_id = $2 AND booking_date = $3 AND status = 'waiting'`,
-            [patientId, doctorId, targetDate]
-        );
-
-        if (existingToken.rows.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: `You already have an active waiting token (#${existingToken.rows[0].token_number}) for this doctor on ${targetDate}`
-            });
+        // 3. Format booking date using database CURRENT_DATE convention if not specified
+        let targetDate = bookingDate ? bookingDate.trim() : null;
+        if (!targetDate) {
+            const todayResult = await pool.query(`SELECT CURRENT_DATE::TEXT AS today`);
+            targetDate = todayResult.rows[0].today;
         }
 
-        // 5. Generate next sequential token number (#1, #2, #3...)
-        const nextTokenResult = await pool.query(
-            `SELECT COALESCE(MAX(token_number), 0) + 1 AS next_token 
-             FROM tokens 
-             WHERE doctor_id = $1 AND booking_date = $2`,
-            [doctorId, targetDate]
-        );
-        const nextTokenNumber = parseInt(nextTokenResult.rows[0].next_token, 10);
-
-        // 6. Use logged in patient's profile name if patient name was omitted in request body
+        // 4. Resolve patient display name fallback
         let resolvedPatientName = patientName ? patientName.trim() : '';
         if (!resolvedPatientName) {
             const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [patientId]);
@@ -244,52 +233,102 @@ exports.bookToken = async (req, res) => {
 
         const resolvedDeptId = departmentId || doctor.department_id || null;
 
-        // 7. Insert token into database
-        const insertResult = await pool.query(
-            `INSERT INTO tokens (
-                token_number, 
-                patient_id, 
-                doctor_id, 
-                hospital_id, 
-                department_id, 
-                patient_name, 
-                status, 
-                booking_date
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'waiting', $7)
-            RETURNING id, token_number, patient_name, status, booking_date, created_at`,
-            [
-                nextTokenNumber,
-                patientId,
-                doctorId,
-                hospitalId,
-                resolvedDeptId,
-                resolvedPatientName,
-                targetDate
-            ]
-        );
+        // 5. Atomic transaction with advisory lock to prevent race conditions during token allocation
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
 
-        const newRecord = insertResult.rows[0];
+            // Serialize token allocation per doctor and booking date using transaction advisory lock
+            await client.query(
+                `SELECT pg_advisory_xact_lock(hashtext($1))`,
+                [`booking_${doctor.id}_${targetDate}`]
+            );
 
-        // 8. Count patients ahead in queue
-        const aheadResult = await pool.query(
-            `SELECT COUNT(*) AS ahead_count 
-             FROM tokens 
-             WHERE doctor_id = $1 AND booking_date = $2 AND status = 'waiting' AND token_number < $3`,
-            [doctorId, targetDate, nextTokenNumber]
-        );
-        const patientsAhead = parseInt(aheadResult.rows[0].ahead_count, 10);
+            // Prevent duplicate waiting tokens for the same patient and doctor on the selected date
+            const existingToken = await client.query(
+                `SELECT id, token_number FROM tokens 
+                 WHERE patient_id = $1 AND doctor_id = $2 AND booking_date = $3 AND status = 'waiting'`,
+                [patientId, doctorId, targetDate]
+            );
 
-        return res.status(201).json({
-            success: true,
-            message: 'Token booked successfully',
-            data: {
-                ...newRecord,
-                doctor_name: doctor.name,
-                doctor_specialization: doctor.specialization,
-                hospital_name: hospital.name,
-                patients_ahead: patientsAhead
+            if (existingToken.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({
+                    success: false,
+                    message: `You already have an active waiting token (#${existingToken.rows[0].token_number}) for this doctor on ${targetDate}`
+                });
             }
-        });
+
+            // Generate next sequential token number (#1, #2, #3...) atomically
+            const nextTokenResult = await client.query(
+                `SELECT COALESCE(MAX(token_number), 0) + 1 AS next_token 
+                 FROM tokens 
+                 WHERE doctor_id = $1 AND booking_date = $2`,
+                [doctorId, targetDate]
+            );
+            const nextTokenNumber = parseInt(nextTokenResult.rows[0].next_token, 10);
+
+            // Insert token into database
+            const insertResult = await client.query(
+                `INSERT INTO tokens (
+                    token_number, 
+                    patient_id, 
+                    doctor_id, 
+                    hospital_id, 
+                    department_id, 
+                    patient_name, 
+                    status, 
+                    booking_date
+                ) VALUES ($1, $2, $3, $4, $5, $6, 'waiting', $7)
+                RETURNING id, token_number, patient_name, status, booking_date, created_at`,
+                [
+                    nextTokenNumber,
+                    patientId,
+                    doctorId,
+                    doctor.hospital_id,
+                    resolvedDeptId,
+                    resolvedPatientName,
+                    targetDate
+                ]
+            );
+
+            const newRecord = insertResult.rows[0];
+
+            // Count patients ahead in queue
+            const aheadResult = await client.query(
+                `SELECT COUNT(*) AS ahead_count 
+                 FROM tokens 
+                 WHERE doctor_id = $1 AND booking_date = $2 AND status = 'waiting' AND token_number < $3`,
+                [doctorId, targetDate, nextTokenNumber]
+            );
+            const patientsAhead = parseInt(aheadResult.rows[0].ahead_count, 10);
+
+            await client.query('COMMIT');
+
+            return res.status(201).json({
+                success: true,
+                message: 'Token booked successfully',
+                data: {
+                    ...newRecord,
+                    doctor_name: doctor.name,
+                    doctor_specialization: doctor.specialization,
+                    hospital_name: hospital.name,
+                    patients_ahead: patientsAhead
+                }
+            });
+        } catch (txnError) {
+            await client.query('ROLLBACK');
+            // Handle unique index violations gracefully
+            if (txnError.code === '23505') {
+                return res.status(400).json({
+                    success: false,
+                    message: `You already have an active waiting token for this doctor on ${targetDate}`
+                });
+            }
+            throw txnError;
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('Error booking token:', error);
         return res.status(500).json({
@@ -305,7 +344,11 @@ exports.getDoctorQueueStatus = async (req, res) => {
         const { id } = req.params;
         const { date } = req.query;
 
-        const targetDate = date ? date.trim() : new Date().toISOString().split('T')[0];
+        let targetDate = date ? date.trim() : null;
+        if (!targetDate) {
+            const todayResult = await pool.query(`SELECT CURRENT_DATE::TEXT AS today`);
+            targetDate = todayResult.rows[0].today;
+        }
 
         const doctorResult = await pool.query(
             `SELECT id, name, specialization, is_available, availability_hours FROM doctors WHERE id = $1`,
