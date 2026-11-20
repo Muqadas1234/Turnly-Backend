@@ -17,6 +17,7 @@ const familyRoutes = require('./routes/family.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const adminRoutes = require('./routes/admin.routes');
 const aiRoutes = require('./routes/ai.routes');
+const patientRoutes = require('./routes/patient.routes');
 
 const realtime = require('./services/realtime');
 const { expireStaleTokens } = require('./services/token.service');
@@ -40,6 +41,7 @@ app.use('/api/family', familyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/patient', patientRoutes);
 
 // health check endpoints
 app.get('/', (req, res) => {
