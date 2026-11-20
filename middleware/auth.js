@@ -13,7 +13,6 @@ const verifyToken = (req, res, next) => {
 
         req.userId = decoded.userId;
         req.userRole = decoded.role;
-        req.user = decoded;
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {

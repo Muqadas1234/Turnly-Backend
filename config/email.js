@@ -39,4 +39,24 @@ const sendOtpEmail = async (toEmail, otpCode, userName) => {
     return transporter.sendMail(mailOptions);
 };
 
-module.exports = { sendOtpEmail };
+// send password reset code
+const sendResetEmail = async (toEmail, otpCode, userName) => {
+    return transporter.sendMail({
+        from: `"Turnly" <${process.env.EMAIL_USER}>`,
+        to: toEmail,
+        subject: `${otpCode} is your Turnly password reset code`,
+        text: `Hello ${userName},\n\nYour Turnly password reset code is: ${otpCode}\n\nThis code is valid for 10 minutes. If you did not request a reset, please ignore this email.\n\nThanks,\nTurnly Team`,
+        html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 460px; margin: 0 auto; padding: 24px 16px; color: #1e293b; line-height: 1.5;">
+                <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #0f172a;">Turnly</h3>
+                <p style="margin: 0 0 12px 0; font-size: 15px;">Hello ${userName},</p>
+                <p style="margin: 0 0 20px 0; font-size: 14px; color: #475569;">Use this code to reset your Turnly password:</p>
+                <div style="font-size: 32px; font-weight: 700; letter-spacing: 4px; color: #0f172a; margin: 16px 0 24px 0;">${otpCode}</div>
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">This code expires in 10 minutes.</p>
+                <p style="margin: 0; font-size: 13px; color: #94a3b8;">If you did not request this, you can safely ignore this email.</p>
+            </div>
+        `,
+    });
+};
+
+module.exports = { sendOtpEmail, sendResetEmail };
