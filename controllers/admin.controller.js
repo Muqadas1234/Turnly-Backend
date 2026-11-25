@@ -169,8 +169,12 @@ exports.approveHospital = async (req, res) => {
         }
 
         if (managerEmail) {
-            sendApprovalEmail(managerEmail, hospital.name, managerName)
-                .catch(err => console.error('Error sending approval email:', err.message));
+            try {
+                await sendApprovalEmail(managerEmail.trim(), hospital.name, managerName);
+                console.log(`Approval email successfully sent to ${managerEmail}`);
+            } catch (err) {
+                console.error('Error sending approval email:', err.message);
+            }
         }
 
         return res.status(200).json({
@@ -226,8 +230,12 @@ exports.rejectHospital = async (req, res) => {
         }
 
         if (managerEmail) {
-            sendRejectionEmail(managerEmail, hospital.name, managerName, rejectionNote)
-                .catch(err => console.error('Error sending rejection email:', err.message));
+            try {
+                await sendRejectionEmail(managerEmail.trim(), hospital.name, managerName, rejectionNote);
+                console.log(`Rejection email successfully sent to ${managerEmail}`);
+            } catch (err) {
+                console.error('Error sending rejection email:', err.message);
+            }
         }
 
         return res.status(200).json({
@@ -283,8 +291,12 @@ exports.suspendHospital = async (req, res) => {
         }
 
         if (managerEmail) {
-            sendSuspensionEmail(managerEmail, hospital.name, managerName, reason)
-                .catch(err => console.error('Error sending suspension email:', err.message));
+            try {
+                await sendSuspensionEmail(managerEmail.trim(), hospital.name, managerName, reason);
+                console.log(`Suspension email successfully sent to ${managerEmail}`);
+            } catch (err) {
+                console.error('Error sending suspension email:', err.message);
+            }
         }
 
         return res.status(200).json({
