@@ -461,10 +461,13 @@ const updateMyHospital = async (req, res) => {
 // Serve hospital document (PDF / Image) directly from database
 const getHospitalDocument = async (req, res) => {
     try {
-        const { id } = req.params;
+        const hospitalId = parseInt(req.params.id, 10);
+        if (isNaN(hospitalId)) {
+            return res.status(400).json({ success: false, message: 'Invalid hospital ID' });
+        }
         const result = await pool.query(
             'SELECT document_data, document_type, document_name FROM hospitals WHERE id = $1',
-            [id]
+            [hospitalId]
         );
 
         if (result.rows.length === 0 || !result.rows[0].document_data) {
@@ -485,10 +488,13 @@ const getHospitalDocument = async (req, res) => {
 // Serve hospital logo directly from database
 const getHospitalLogo = async (req, res) => {
     try {
-        const { id } = req.params;
+        const hospitalId = parseInt(req.params.id, 10);
+        if (isNaN(hospitalId)) {
+            return res.status(400).json({ success: false, message: 'Invalid hospital ID' });
+        }
         const result = await pool.query(
             'SELECT logo_data, logo_name FROM hospitals WHERE id = $1',
-            [id]
+            [hospitalId]
         );
 
         if (result.rows.length === 0 || !result.rows[0].logo_data) {
