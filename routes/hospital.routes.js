@@ -5,7 +5,7 @@ const { requireRole, managerHospital } = require('../middleware/role');
 const { h } = require('../utils/http');
 const {
     registerHospital, resubmitHospital, getMyHospital, updateMyHospital, updateHospitalStatus,
-    getHospitalDocument, getHospitalLogo,
+    getHospitalDocument, getHospitalCertificate, getHospitalLogo,
 } = require('../controllers/hospital.controller');
 const {
     listHospitals, listCities, getHospital, listHospitalDepartments, listHospitalDoctors,
@@ -20,6 +20,7 @@ router.patch('/my-hospital', verifyToken, requireRole('manager'), managerHospita
 // ---- Patient browsing (approved hospitals only) ----
 router.get('/cities', h(listCities));
 router.get('/:id/document', getHospitalDocument);
+router.get('/:id/certificate', getHospitalCertificate);
 router.get('/:id/logo', getHospitalLogo);
 router.get('/', h(listHospitals));
 router.get('/:id', h(getHospital));
