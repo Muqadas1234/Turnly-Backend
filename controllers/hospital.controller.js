@@ -25,6 +25,11 @@ const registerHospital = async (req, res) => {
             certificate_doc_name,
             certificate_doc_size,
             certificate_doc_url,
+            logo_base64,
+            logo_name,
+            document_base64,
+            document_name,
+            document_type,
         } = req.body;
 
         // Required fields validation
@@ -58,6 +63,9 @@ const registerHospital = async (req, res) => {
             });
         }
 
+        const logoBuffer = logo_base64 ? Buffer.from(logo_base64, 'base64') : null;
+        const docBuffer = document_base64 ? Buffer.from(document_base64, 'base64') : null;
+
         const inserted = await pool.query(
             `INSERT INTO hospitals (
                 name,
@@ -79,13 +87,19 @@ const registerHospital = async (req, res) => {
                 license_doc_url,
                 certificate_doc_name,
                 certificate_doc_size,
-                certificate_doc_url
+                certificate_doc_url,
+                logo_data,
+                logo_name,
+                document_data,
+                document_name,
+                document_type
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
                 'pending',
                 $9,
-                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+                $20, $21, $22, $23, $24
             )
             RETURNING *`,
             [
@@ -108,6 +122,11 @@ const registerHospital = async (req, res) => {
                 certificate_doc_name || null,
                 certificate_doc_size || null,
                 certificate_doc_url || null,
+                logoBuffer,
+                logo_name || null,
+                docBuffer,
+                document_name || license_doc_name || null,
+                document_type || 'application/pdf',
             ]
         );
 
@@ -176,7 +195,15 @@ const resubmitHospital = async (req, res) => {
             certificate_doc_name,
             certificate_doc_size,
             certificate_doc_url,
+            logo_base64,
+            logo_name,
+            document_base64,
+            document_name,
+            document_type,
         } = req.body;
+
+        const logoBuffer = logo_base64 ? Buffer.from(logo_base64, 'base64') : null;
+        const docBuffer = document_base64 ? Buffer.from(document_base64, 'base64') : null;
 
         const updated = await pool.query(
             `UPDATE hospitals
@@ -198,10 +225,15 @@ const resubmitHospital = async (req, res) => {
                  certificate_doc_name = $16,
                  certificate_doc_size = $17,
                  certificate_doc_url = $18,
+                 logo_data = COALESCE($19, logo_data),
+                 logo_name = COALESCE($20, logo_name),
+                 document_data = COALESCE($21, document_data),
+                 document_name = COALESCE($22, document_name),
+                 document_type = COALESCE($23, document_type),
                  status = 'pending',
                  rejection_reason = NULL,
                  updated_at = NOW()
-             WHERE id = $19
+             WHERE id = $24
              RETURNING *`,
             [
                 name ?? current.name,
@@ -222,6 +254,11 @@ const resubmitHospital = async (req, res) => {
                 certificate_doc_name ?? current.certificate_doc_name,
                 certificate_doc_size ?? current.certificate_doc_size,
                 certificate_doc_url ?? current.certificate_doc_url,
+                logoBuffer,
+                logo_name ?? current.logo_name,
+                docBuffer,
+                document_name ?? license_doc_name ?? current.document_name,
+                document_type ?? current.document_type,
                 current.id,
             ]
         );
@@ -421,10 +458,58 @@ const updateMyHospital = async (req, res) => {
 };
 
 
+// Serve hospital document (PDF / Image) directly from database
+const getHospitalDocument = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            'SELECT document_data, document_type, document_name FROM hospitals WHERE id = $1',
+            [id]
+        );
+
+        if (result.rows.length === 0 || !result.rows[0].document_data) {
+            return res.status(404).json({ success: false, message: 'Document not found' });
+        }
+
+        const doc = result.rows[0];
+        res.setHeader('Content-Type', doc.document_type || 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.document_name || 'document.pdf'}"`);
+        return res.send(doc.document_data);
+    } catch (error) {
+        console.error('Error fetching document:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+
+// Serve hospital logo directly from database
+const getHospitalLogo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            'SELECT logo_data, logo_name FROM hospitals WHERE id = $1',
+            [id]
+        );
+
+        if (result.rows.length === 0 || !result.rows[0].logo_data) {
+            return res.status(404).json({ success: false, message: 'Logo not found' });
+        }
+
+        const logo = result.rows[0];
+        res.setHeader('Content-Type', 'image/png');
+        return res.send(logo.logo_data);
+    } catch (error) {
+        console.error('Error fetching logo:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 module.exports = {
     registerHospital,
     resubmitHospital,
     getMyHospital,
     updateMyHospital,
     updateHospitalStatus,
+    getHospitalDocument,
+    getHospitalLogo,
 };
