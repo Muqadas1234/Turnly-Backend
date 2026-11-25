@@ -59,4 +59,54 @@ const sendResetEmail = async (toEmail, otpCode, userName) => {
     });
 };
 
-module.exports = { sendOtpEmail, sendResetEmail };
+
+// Send hospital approval email to manager
+const sendApprovalEmail = async (toEmail, hospitalName, managerName) => {
+    return transporter.sendMail({
+        from: `"Turnly" <${process.env.EMAIL_USER}>`,
+        to: toEmail,
+        subject: `🎉 Hospital Registration Approved - ${hospitalName}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; borderRadius: 12px;">
+                <h2 style="color: #0d9488; margin-top: 0;">Registration Approved! 🎉</h2>
+                <p>Hello <b>${managerName}</b>,</p>
+                <p>Great news! Your registration for <b>${hospitalName}</b> has been reviewed and <b>approved</b> by the Turnly Admin team.</p>
+                <p>You can now log in to your dedicated Manager Portal to add departments, register doctors, and begin managing patient tokens.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="https://turnly-backend.vercel.app" style="background-color: #0d9488; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                        Open Turnly App / Login
+                    </a>
+                </div>
+                <p style="color: #64748b; font-size: 13px;">If you have any questions, feel free to reply to this email.</p>
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Team Turnly</p>
+            </div>
+        `,
+    });
+};
+
+// Send hospital rejection email to manager with reason
+const sendRejectionEmail = async (toEmail, hospitalName, managerName, reason) => {
+    return transporter.sendMail({
+        from: `"Turnly" <${process.env.EMAIL_USER}>`,
+        to: toEmail,
+        subject: `⚠️ Hospital Registration Update - ${hospitalName}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; borderRadius: 12px;">
+                <h2 style="color: #dc2626; margin-top: 0;">Registration Review Update</h2>
+                <p>Hello <b>${managerName}</b>,</p>
+                <p>Thank you for submitting your hospital registration for <b>${hospitalName}</b>.</p>
+                <p>After reviewing your submitted documents and details, our team could not approve the registration at this time.</p>
+                <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 12px 16px; margin: 20px 0;">
+                    <p style="margin: 0; font-weight: bold; color: #991b1b;">Reason for rejection:</p>
+                    <p style="margin: 6px 0 0 0; color: #7f1d1d;">${reason || 'Please verify license documents and accurate hospital information.'}</p>
+                </div>
+                <p>You can re-open the Turnly app, review your details, update documents, and <b>resubmit</b> for approval.</p>
+                <p style="color: #64748b; font-size: 13px;">Need assistance? Contact us at support@turnly.pk</p>
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Team Turnly</p>
+            </div>
+        `,
+    });
+};
+
+module.exports = { sendOtpEmail, sendResetEmail, sendApprovalEmail, sendRejectionEmail
+ };
