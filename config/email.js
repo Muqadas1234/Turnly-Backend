@@ -66,16 +66,19 @@ const sendApprovalEmail = async (toEmail, hospitalName, managerName) => {
         from: `"Turnly" <${process.env.EMAIL_USER}>`,
         to: toEmail,
         subject: `🎉 Hospital Registration Approved - ${hospitalName}`,
+        text: `Hello ${managerName},\n\nGreat news! Your registration for ${hospitalName} has been reviewed and approved by the Turnly Admin team.\n\nPlease open the Turnly app and log in to your account to access your Hospital Manager Portal.\n\nThanks,\nTurnly Team`,
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; borderRadius: 12px;">
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
                 <h2 style="color: #0d9488; margin-top: 0;">Registration Approved! 🎉</h2>
                 <p>Hello <b>${managerName}</b>,</p>
                 <p>Great news! Your registration for <b>${hospitalName}</b> has been reviewed and <b>approved</b> by the Turnly Admin team.</p>
-                <p>You can now log in to your dedicated Manager Portal to add departments, register doctors, and begin managing patient tokens.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://turnly-backend.vercel.app" style="background-color: #0d9488; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                        Open Turnly App / Login
-                    </a>
+                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 22px 0; text-align: center;">
+                    <p style="margin: 0; font-size: 15px; font-weight: 600; color: #166534;">
+                        📱 Please open the Turnly app and log in to access your portal.
+                    </p>
+                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #15803d;">
+                        You can now add departments, register doctors, and begin managing patient queues.
+                    </p>
                 </div>
                 <p style="color: #64748b; font-size: 13px;">If you have any questions, feel free to reply to this email.</p>
                 <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Team Turnly</p>
