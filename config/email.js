@@ -93,23 +93,54 @@ const sendRejectionEmail = async (toEmail, hospitalName, managerName, reason) =>
         from: `"Turnly" <${process.env.EMAIL_USER}>`,
         to: toEmail,
         subject: `⚠️ Hospital Registration Update - ${hospitalName}`,
+        text: `Hello ${managerName},\n\nWe couldn't approve ${hospitalName} yet.\n\nReason: ${reason || 'Please review your registration documents and details.'}\n\nPlease open the Turnly app, fix the issue, and resubmit for approval.\n\nThanks,\nTurnly Team`,
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; borderRadius: 12px;">
-                <h2 style="color: #dc2626; margin-top: 0;">Registration Review Update</h2>
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #dc2626; margin-top: 0;">Registration Not Approved</h2>
                 <p>Hello <b>${managerName}</b>,</p>
-                <p>Thank you for submitting your hospital registration for <b>${hospitalName}</b>.</p>
-                <p>After reviewing your submitted documents and details, our team could not approve the registration at this time.</p>
-                <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 12px 16px; margin: 20px 0;">
-                    <p style="margin: 0; font-weight: bold; color: #991b1b;">Reason for rejection:</p>
-                    <p style="margin: 6px 0 0 0; color: #7f1d1d;">${reason || 'Please verify license documents and accurate hospital information.'}</p>
+                <p>We couldn't approve <b>${hospitalName}</b> yet. Fix the issue below and resubmit — it only takes a minute.</p>
+                <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: #991b1b; text-transform: uppercase;">MESSAGE FROM ADMIN:</p>
+                    <p style="margin: 6px 0 0 0; font-size: 14px; color: #7f1d1d; line-height: 1.45;">
+                        ${reason || 'The hospital license document is unclear. Please upload a clear, full-page copy of your license and resubmit.'}
+                    </p>
                 </div>
-                <p>You can re-open the Turnly app, review your details, update documents, and <b>resubmit</b> for approval.</p>
-                <p style="color: #64748b; font-size: 13px;">Need assistance? Contact us at support@turnly.pk</p>
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin: 16px 0; text-align: center;">
+                    <p style="margin: 0; font-size: 14px; font-weight: 600; color: #334155;">
+                        📱 Please open the Turnly app and log in to edit & resubmit.
+                    </p>
+                </div>
+                <p style="color: #64748b; font-size: 13px;">Need assistance? Contact support at support@turnly.pk</p>
                 <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Team Turnly</p>
             </div>
         `,
     });
 };
 
-module.exports = { sendOtpEmail, sendResetEmail, sendApprovalEmail, sendRejectionEmail
- };
+// Send hospital suspension email to manager
+const sendSuspensionEmail = async (toEmail, hospitalName, managerName, reason) => {
+    return transporter.sendMail({
+        from: `"Turnly" <${process.env.EMAIL_USER}>`,
+        to: toEmail,
+        subject: `⚠️ Hospital Account Suspended - ${hospitalName}`,
+        text: `Hello ${managerName},\n\nThe Turnly admin team has temporarily suspended ${hospitalName}.\n\nReason: ${reason || 'Temporarily suspended by Turnly admin.'}\n\nPlease contact support at support@turnly.pk to resolve this.\n\nThanks,\nTurnly Team`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #d97706; margin-top: 0;">Hospital Suspended ⚠️</h2>
+                <p>Hello <b>${managerName}</b>,</p>
+                <p>The Turnly admin team has temporarily suspended <b>${hospitalName}</b>. Contact support to resolve this.</p>
+                <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px; margin: 18px 0;">
+                    <p style="margin: 0; font-size: 13.5px; font-weight: 700; color: #92400e;">What this means:</p>
+                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #b45309; line-height: 1.45;">
+                        Your hospital is hidden from patients and queues are paused. Existing tokens are kept so patients are not lost.
+                    </p>
+                    ${reason ? `<p style="margin: 10px 0 0 0; font-size: 12.5px; color: #78350f;"><b>Note:</b> ${reason}</p>` : ''}
+                </div>
+                <p style="color: #64748b; font-size: 13px;">Please contact support at <a href="mailto:support@turnly.pk" style="color: #0d9488; font-weight: 600;">support@turnly.pk</a> to resolve this.</p>
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">Team Turnly</p>
+            </div>
+        `,
+    });
+};
+
+module.exports = { sendOtpEmail, sendResetEmail, sendApprovalEmail, sendRejectionEmail, sendSuspensionEmail };

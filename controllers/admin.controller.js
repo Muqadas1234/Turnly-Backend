@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { sendApprovalEmail, sendRejectionEmail } = require('../config/email');
+const { sendApprovalEmail, sendRejectionEmail, sendSuspensionEmail } = require('../config/email');
 
 // Fetch all hospitals with optional status filter and counts summary
 exports.getHospitals = async (req, res) => {
@@ -248,6 +248,7 @@ exports.rejectHospital = async (req, res) => {
 exports.suspendHospital = async (req, res) => {
     try {
         const { id } = req.params;
+        const { reason } = req.body || {};
 
         const result = await pool.query(
             `UPDATE hospitals 
@@ -264,10 +265,32 @@ exports.suspendHospital = async (req, res) => {
             });
         }
 
+        const hospital = result.rows[0];
+
+        // Always send email to the registered user's login email (users table)
+        let managerEmail = null;
+        let managerName = hospital.manager_name || 'Manager';
+
+        if (hospital.manager_id) {
+            const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [hospital.manager_id]);
+            if (userRes.rows[0] && userRes.rows[0].email) {
+                managerEmail = userRes.rows[0].email;
+                managerName = userRes.rows[0].name || managerName;
+            }
+        }
+        if (!managerEmail) {
+            managerEmail = hospital.manager_email;
+        }
+
+        if (managerEmail) {
+            sendSuspensionEmail(managerEmail, hospital.name, managerName, reason)
+                .catch(err => console.error('Error sending suspension email:', err.message));
+        }
+
         return res.status(200).json({
             success: true,
             message: 'Hospital suspended successfully',
-            data: result.rows[0]
+            data: hospital
         });
     } catch (error) {
         console.error('Error suspending hospital:', error);
