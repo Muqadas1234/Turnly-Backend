@@ -392,10 +392,10 @@ exports.deleteHospital = async (req, res) => {
     }
 };
 
-// Fetch platform users with optional role & search filter
-exports.getUsers = async (req, res) => {
+// Fetch platform hospital managers with optional status & search filter
+exports.getManagers = async (req, res) => {
     try {
-        const { role, search } = req.query;
+        const { status, search } = req.query;
 
         let query = `
             SELECT 
@@ -410,18 +410,18 @@ exports.getUsers = async (req, res) => {
                 h.status AS hospital_status
             FROM users u
             LEFT JOIN hospitals h ON (u.hospital_id = h.id OR h.manager_id = u.id)
-            WHERE 1=1
+            WHERE u.role = 'manager'
         `;
         const params = [];
 
-        if (role && ['manager', 'patient', 'admin'].includes(role.toLowerCase())) {
-            params.push(role.toLowerCase());
-            query += ` AND u.role = $${params.length}`;
+        if (status && ['approved', 'pending', 'rejected', 'suspended'].includes(status.toLowerCase())) {
+            params.push(status.toLowerCase());
+            query += ` AND LOWER(h.status) = $${params.length}`;
         }
 
         if (search && search.trim().length > 0) {
             params.push(`%${search.trim().toLowerCase()}%`);
-            query += ` AND (LOWER(u.name) LIKE $${params.length} OR LOWER(u.email) LIKE $${params.length} OR LOWER(COALESCE(u.phone, '')) LIKE $${params.length})`;
+            query += ` AND (LOWER(u.name) LIKE $${params.length} OR LOWER(u.email) LIKE $${params.length} OR LOWER(COALESCE(u.phone, '')) LIKE $${params.length} OR LOWER(COALESCE(h.name, '')) LIKE $${params.length})`;
         }
 
         query += ` ORDER BY u.created_at DESC`;
@@ -434,10 +434,13 @@ exports.getUsers = async (req, res) => {
             data: result.rows
         });
     } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching managers:', error);
         return res.status(500).json({
             success: false,
-            message: 'Internal server error while fetching users'
+            message: 'Internal server error while fetching managers'
         });
     }
 };
+
+// Alias for backwards compatibility
+exports.getUsers = exports.getManagers;

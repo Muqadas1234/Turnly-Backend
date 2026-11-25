@@ -19,7 +19,8 @@ router.delete('/hospitals/:id', adminController.deleteHospital);
 // Platform stats route
 router.get('/stats', adminController.getPlatformStats);
 
-// User management route
+// Manager management route
+router.get('/managers', adminController.getManagers);
 router.get('/users', adminController.getUsers);
 
 module.exports = router;
