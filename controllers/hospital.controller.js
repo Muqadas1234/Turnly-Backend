@@ -122,7 +122,7 @@ const registerHospital = async (req, res) => {
                 logo_url || null,
                 managerId,
                 manager_name || manager.rows[0].name,
-                manager_email || manager.rows[0].email,
+                manager.rows[0].email || manager_email,
                 manager_phone || manager.rows[0].phone || null,
                 manager_designation || 'Medical Superintendent',
                 license_doc_name || document_name || null,

@@ -153,16 +153,19 @@ exports.approveHospital = async (req, res) => {
 
         const hospital = result.rows[0];
 
-        // Send approval email to manager asynchronously
-        let managerEmail = hospital.manager_email;
+        // Always send email to the registered user's login email (users table)
+        let managerEmail = null;
         let managerName = hospital.manager_name || 'Manager';
 
-        if (!managerEmail && hospital.manager_id) {
+        if (hospital.manager_id) {
             const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [hospital.manager_id]);
-            if (userRes.rows[0]) {
+            if (userRes.rows[0] && userRes.rows[0].email) {
                 managerEmail = userRes.rows[0].email;
                 managerName = userRes.rows[0].name || managerName;
             }
+        }
+        if (!managerEmail) {
+            managerEmail = hospital.manager_email;
         }
 
         if (managerEmail) {
@@ -207,16 +210,19 @@ exports.rejectHospital = async (req, res) => {
 
         const hospital = result.rows[0];
 
-        // Send rejection email to manager asynchronously
-        let managerEmail = hospital.manager_email;
+        // Always send email to the registered user's login email (users table)
+        let managerEmail = null;
         let managerName = hospital.manager_name || 'Manager';
 
-        if (!managerEmail && hospital.manager_id) {
+        if (hospital.manager_id) {
             const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [hospital.manager_id]);
-            if (userRes.rows[0]) {
+            if (userRes.rows[0] && userRes.rows[0].email) {
                 managerEmail = userRes.rows[0].email;
                 managerName = userRes.rows[0].name || managerName;
             }
+        }
+        if (!managerEmail) {
+            managerEmail = hospital.manager_email;
         }
 
         if (managerEmail) {
