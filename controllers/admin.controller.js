@@ -344,3 +344,100 @@ exports.getPlatformStats = async (req, res) => {
         });
     }
 };
+
+// Permanently delete a hospital (suspended or rejected or any)
+exports.deleteHospital = async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+
+        await client.query('BEGIN');
+
+        // Check if hospital exists
+        const checkRes = await client.query('SELECT id, name, manager_id FROM hospitals WHERE id = $1', [id]);
+        if (checkRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({
+                success: false,
+                message: 'Hospital not found'
+            });
+        }
+        const hospital = checkRes.rows[0];
+
+        // 1. Unlink hospital from any users
+        await client.query('UPDATE users SET hospital_id = NULL WHERE hospital_id = $1', [id]);
+
+        // 2. Delete tokens referencing this hospital
+        await client.query('DELETE FROM tokens WHERE hospital_id = $1', [id]);
+
+        // 3. Delete hospital (cascades to departments, doctors, token_counters)
+        await client.query('DELETE FROM hospitals WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
+
+        return res.status(200).json({
+            success: true,
+            message: `Hospital "${hospital.name}" permanently deleted successfully`,
+            data: { id: hospital.id }
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error deleting hospital:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error while deleting hospital'
+        });
+    } finally {
+        client.release();
+    }
+};
+
+// Fetch platform users with optional role & search filter
+exports.getUsers = async (req, res) => {
+    try {
+        const { role, search } = req.query;
+
+        let query = `
+            SELECT 
+                u.id,
+                u.name,
+                u.email,
+                u.phone,
+                u.role,
+                u.created_at,
+                h.id AS hospital_id,
+                h.name AS hospital_name,
+                h.status AS hospital_status
+            FROM users u
+            LEFT JOIN hospitals h ON (u.hospital_id = h.id OR h.manager_id = u.id)
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (role && ['manager', 'patient', 'admin'].includes(role.toLowerCase())) {
+            params.push(role.toLowerCase());
+            query += ` AND u.role = $${params.length}`;
+        }
+
+        if (search && search.trim().length > 0) {
+            params.push(`%${search.trim().toLowerCase()}%`);
+            query += ` AND (LOWER(u.name) LIKE $${params.length} OR LOWER(u.email) LIKE $${params.length} OR LOWER(COALESCE(u.phone, '')) LIKE $${params.length})`;
+        }
+
+        query += ` ORDER BY u.created_at DESC`;
+
+        const result = await pool.query(query, params);
+
+        return res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error while fetching users'
+        });
+    }
+};

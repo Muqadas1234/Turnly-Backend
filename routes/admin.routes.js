@@ -14,8 +14,12 @@ router.get('/hospitals/:id', adminController.getHospitalById);
 router.put('/hospitals/:id/approve', adminController.approveHospital);
 router.put('/hospitals/:id/reject', adminController.rejectHospital);
 router.put('/hospitals/:id/suspend', adminController.suspendHospital);
+router.delete('/hospitals/:id', adminController.deleteHospital);
 
 // Platform stats route
 router.get('/stats', adminController.getPlatformStats);
+
+// User management route
+router.get('/users', adminController.getUsers);
 
 module.exports = router;
