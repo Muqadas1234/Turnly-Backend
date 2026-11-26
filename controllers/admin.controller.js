@@ -10,7 +10,8 @@ exports.getHospitals = async (req, res) => {
             SELECT 
                 COUNT(*) FILTER (WHERE status = 'pending') AS pending_count,
                 COUNT(*) FILTER (WHERE status = 'approved') AS approved_count,
-                COUNT(*) FILTER (WHERE status = 'suspended') AS suspended_count
+                COUNT(*) FILTER (WHERE status = 'suspended') AS suspended_count,
+                COUNT(*) FILTER (WHERE status = 'rejected') AS rejected_count
             FROM hospitals
         `;
         const countsResult = await pool.query(countsQuery);
@@ -25,9 +26,9 @@ exports.getHospitals = async (req, res) => {
                 h.phone,
                 h.email,
                 h.status,
-                h.type,
+                h.hospital_type AS type,
                 h.opd_timings,
-                h.rejection_note,
+                h.rejection_reason AS rejection_note,
                 h.created_at,
                 u.name AS manager_name,
                 u.email AS manager_email
@@ -36,7 +37,7 @@ exports.getHospitals = async (req, res) => {
         `;
         const params = [];
 
-        if (status && ['pending', 'approved', 'suspended'].includes(status.toLowerCase())) {
+        if (status && ['pending', 'approved', 'rejected', 'suspended'].includes(status.toLowerCase())) {
             query += ` WHERE h.status = $1`;
             params.push(status.toLowerCase());
         }
@@ -50,7 +51,8 @@ exports.getHospitals = async (req, res) => {
             counts: {
                 pending: parseInt(countsResult.rows[0].pending_count) || 0,
                 approved: parseInt(countsResult.rows[0].approved_count) || 0,
-                suspended: parseInt(countsResult.rows[0].suspended_count) || 0
+                suspended: parseInt(countsResult.rows[0].suspended_count) || 0,
+                rejected: parseInt(countsResult.rows[0].rejected_count) || 0
             },
             data: result.rows
         });
@@ -77,9 +79,9 @@ exports.getHospitalById = async (req, res) => {
                 h.phone,
                 h.email,
                 h.status,
-                h.type,
+                h.hospital_type AS type,
                 h.opd_timings,
-                h.rejection_note,
+                h.rejection_reason AS rejection_note,
                 h.created_at,
                 u.name AS manager_name,
                 u.email AS manager_email
@@ -148,11 +150,11 @@ exports.approveHospital = async (req, res) => {
 exports.rejectHospital = async (req, res) => {
     try {
         const { id } = req.params;
-        const { rejectionNote } = req.body;
+        const { rejectionNote } = req.body || {};
 
         const result = await pool.query(
             `UPDATE hospitals 
-             SET status = 'rejected', rejection_note = $1, updated_at = NOW() 
+             SET status = 'rejected', rejection_reason = $1, updated_at = NOW() 
              WHERE id = $2 
              RETURNING *`,
             [rejectionNote || null, id]
@@ -224,14 +226,14 @@ exports.getPlatformStats = async (req, res) => {
         `);
         const activeQueues = await pool.query(`
             SELECT COUNT(DISTINCT doctor_id) FROM tokens 
-            WHERE status IN ('waiting', 'in_progress')
+            WHERE status IN ('waiting', 'serving')
         `);
 
         // Tokens issued per hospital for bar chart
         const tokensPerHospital = await pool.query(`
             SELECT h.name, COUNT(t.id) AS token_count
             FROM hospitals h
-            LEFT JOIN tokens t ON h.id = t.hospital_id
+            LEFT JOIN tokens t ON h.id = t.hospital_id AND DATE(t.created_at) = CURRENT_DATE
             WHERE h.status = 'approved'
             GROUP BY h.id, h.name
             ORDER BY token_count DESC

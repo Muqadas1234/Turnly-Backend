@@ -76,7 +76,7 @@ Useful error codes: `DAILY_LIMIT_REACHED`, `DEPARTMENT_LIMIT_REACHED`, `ALREADY_
 ### Patient: hospitals, departments, doctors
 | Method | Endpoint | Notes |
 | :--- | :--- | :--- |
-| GET | `/api/hospitals?search=&city=&lat=&lng=&page=&limit=` | approved only; `lat`+`lng` sorts nearest first (`distance_km`) |
+| GET | `/api/hospitals?search=&city=&lat=&lng=&page=&limit=` | public; approved hospitals only; `lat`+`lng` sorts nearest first (`distance_km`) |
 | GET | `/api/hospitals/cities` | for the city chips |
 | GET | `/api/hospitals/:id` | |
 | GET | `/api/hospitals/:id/departments` | |
@@ -117,11 +117,11 @@ Queue routes need an **approved** hospital. Manager registration must happen aft
 ### Admin (role `admin`)
 | Method | Endpoint | Notes |
 | :--- | :--- | :--- |
-| GET | `/api/admin/hospitals?status=&search=&page=` | returns `counts` for the Pending / Approved / Suspended tabs |
+| GET | `/api/admin/hospitals?status=` | optional status filter: pending, approved, rejected, suspended; returns summary counts |
 | GET | `/api/admin/hospitals/:id` | full registration for the review screen |
 | PATCH | `/api/hospitals/:id/status` | `{ status: approved/rejected/suspended/pending, rejection_reason?, suspension_reason? }` - notifies the manager |
-| POST | `/api/admin/hospitals/bulk-approve` | `{ ids: [1,2] }` |
-| GET | `/api/admin/stats?date=` | hospitals, tokens today, active queues, patients, per-hospital bars, tokens by hour |
+| PUT | `/api/admin/hospitals/:id/approve`, `/reject`, `/suspend` | legacy admin actions; reject accepts `{ rejectionNote }` |
+| GET | `/api/admin/stats` | approved hospitals, patients, today's tokens, active queues and top hospitals |
 
 ---
 
@@ -169,6 +169,12 @@ utils/                     http (AppError), db (transactions), dates, queue (pur
 scripts/                   setup-db, seed-demo, create-admin, test-endpoints (original auth test)
 tests/                     unit tests (npm test)
 ```
+
+## Integration notes
+
+* The older admin API field names `type` and `rejection_note` are preserved in its JSON response, while SQL uses the canonical `hospital_type` and `rejection_reason` columns.
+* `npm run setup-db` includes a compatibility migration for existing databases that still have the older `type`, `rejection_note`, or `in_progress` values. Back up a production database before running schema upgrades.
+* Patient booking and queue functionality is consolidated under `/api/hospitals`, `/api/doctors`, `/api/tokens`, and `/api/queue`; see the endpoint tables above for the current routes.
 
 ## Notes
 

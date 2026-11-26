@@ -17,11 +17,11 @@ router.get('/my-hospital', verifyToken, getMyHospital);
 router.patch('/my-hospital', verifyToken, requireRole('manager'), managerHospital, h(updateMyHospital));
 
 // ---- Patient browsing (approved hospitals only) ----
-router.get('/cities', verifyToken, h(listCities));
-router.get('/', verifyToken, h(listHospitals));
-router.get('/:id', verifyToken, h(getHospital));
-router.get('/:id/departments', verifyToken, h(listHospitalDepartments));
-router.get('/:id/doctors', verifyToken, h(listHospitalDoctors));
+router.get('/cities', h(listCities));
+router.get('/', h(listHospitals));
+router.get('/:id', h(getHospital));
+router.get('/:id/departments', h(listHospitalDepartments));
+router.get('/:id/doctors', h(listHospitalDoctors));
 
 // ---- Admin ----
 router.patch('/:id/status', verifyToken, updateHospitalStatus);

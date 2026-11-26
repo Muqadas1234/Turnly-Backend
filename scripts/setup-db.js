@@ -88,6 +88,26 @@ const setupDatabase = async () => {
     ALTER TABLE hospitals
     ALTER COLUMN manager_id DROP NOT NULL;
 `);
+        // Migrate legacy friend-backend column names into the canonical schema.
+        // Dynamic SQL is used so this also runs when the legacy columns do not exist.
+        await pool.query(`
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema() AND table_name = 'hospitals' AND column_name = 'type'
+                ) THEN
+                    EXECUTE 'UPDATE hospitals SET hospital_type = type WHERE type IS NOT NULL AND (hospital_type IS NULL OR hospital_type = ''Private'')';
+                END IF;
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema() AND table_name = 'hospitals' AND column_name = 'rejection_note'
+                ) THEN
+                    EXECUTE 'UPDATE hospitals SET rejection_reason = rejection_note WHERE rejection_reason IS NULL AND rejection_note IS NOT NULL';
+                END IF;
+            END $$;
+        `);
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS departments (
                 id                  SERIAL PRIMARY KEY,
@@ -202,6 +222,9 @@ const setupDatabase = async () => {
                 ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
         `);
+
+        // Convert the legacy active-token state used by the original patient module.
+        await pool.query(`UPDATE tokens SET status = 'serving' WHERE status = 'in_progress'`);
 
         // one row per doctor per day: the atomic upsert on this row hands out token numbers safely
         await pool.query(`
