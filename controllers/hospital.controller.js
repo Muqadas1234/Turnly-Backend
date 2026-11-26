@@ -58,11 +58,12 @@ const registerHospital = async (req, res) => {
             `SELECT id, status FROM hospitals WHERE manager_id = $1 LIMIT 1`, [managerId]
         );
         if (existing.rows[0]) {
+            if (existing.rows[0].status === 'rejected') {
+                return resubmitHospital(req, res);
+            }
             return res.status(409).json({
                 success: false,
-                message: existing.rows[0].status === 'rejected'
-                    ? 'Your previous registration was rejected. Please use resubmit.'
-                    : 'You already have a hospital registration.',
+                message: 'You already have a hospital registration.',
                 hospital_id: existing.rows[0].id,
                 status: existing.rows[0].status,
             });
@@ -162,7 +163,7 @@ const registerHospital = async (req, res) => {
 
 // Resubmit a rejected hospital registration
 // This endpoint is for an authenticated manager.
-const resubmitHospital = async (req, res) => {
+async function resubmitHospital(req, res) {
     try {
         const managerId = req.userId;
 
