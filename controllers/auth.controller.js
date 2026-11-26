@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
+const { saveDeviceToken, removeDeviceToken } = require('../services/devices');
 const { sendOtpEmail, sendResetEmail } = require('../config/email');
 require('dotenv').config();
 
@@ -78,6 +79,7 @@ const signup = async (req, res) => {
         );
 
         const newUser = result.rows[0];
+        if (fcm_token) await saveDeviceToken(newUser.id, fcm_token, req.body.platform);
 
         // create otp with 10 min expiration
         const otpCode = generateOtp();
@@ -243,10 +245,9 @@ const login = async (req, res) => {
         }
 
         // update fcm token if passed
-        if (fcm_token) {
-            await pool.query('UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2', [fcm_token, user.id]);
+               if (fcm_token) {
+            await saveDeviceToken(user.id, fcm_token, req.body.platform);
         }
-
         const token = signToken(user.id, user.role);
 
         return res.status(200).json({
@@ -397,11 +398,9 @@ const changePassword = async (req, res) => {
 // save / refresh the phone's FCM token (call this whenever Firebase gives the app a new token)
 const updateFcmToken = async (req, res) => {
     try {
-        const { fcm_token } = req.body;
+        const { fcm_token, platform } = req.body;
         if (!fcm_token) return res.status(400).json({ success: false, message: 'fcm_token is required' });
-        // a token belongs to one account: remove it from anyone who logged in earlier on the same phone
-        await pool.query('UPDATE users SET fcm_token = NULL WHERE fcm_token = $1 AND id <> $2', [fcm_token, req.userId]);
-        await pool.query('UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2', [fcm_token, req.userId]);
+        await saveDeviceToken(req.userId, fcm_token, platform);
         return res.status(200).json({ success: true, message: 'Push token saved' });
     } catch (error) {
         console.error('FCM token error:', error);
@@ -409,4 +408,17 @@ const updateFcmToken = async (req, res) => {
     }
 };
 
-module.exports = { signup, verifyOtp, resendOtp, login, getProfile, updateProfile, forgotPassword, resetPassword, changePassword, updateFcmToken };
+// logout on this device: stop pushes to this token (other devices keep working)
+const deleteFcmToken = async (req, res) => {
+    try {
+        const { fcm_token } = req.body || {};
+        if (!fcm_token) return res.status(400).json({ success: false, message: 'fcm_token is required' });
+        await removeDeviceToken(req.userId, fcm_token);
+        return res.status(200).json({ success: true, message: 'Push token removed' });
+    } catch (error) {
+        console.error('FCM token delete error:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+module.exports = { signup, verifyOtp, resendOtp, login, getProfile, updateProfile, forgotPassword, resetPassword, changePassword, updateFcmToken, deleteFcmToken };

@@ -4,8 +4,7 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-});
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },});
 
 const setupDatabase = async () => {
     try {
@@ -249,8 +248,26 @@ const setupDatabase = async () => {
                 created_at  TIMESTAMP DEFAULT NOW()
             );
         `);
-
+                  // One row per device so a user can be signed in on phone + web + tablet.
+        // users.fcm_token stays for backward compatibility (legacy single-token clients).
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS user_devices (
+                id            SERIAL PRIMARY KEY,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                fcm_token     TEXT NOT NULL UNIQUE,
+                platform      VARCHAR(10),
+                created_at    TIMESTAMP DEFAULT NOW(),
+                last_seen_at  TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        await pool.query(`
+            INSERT INTO user_devices (user_id, fcm_token, platform)
+            SELECT id, fcm_token, 'unknown' FROM users WHERE fcm_token IS NOT NULL
+            ON CONFLICT (fcm_token) DO NOTHING;
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS user_devices_user_idx ON user_devices (user_id)`);
         const indexes = [
+            
             // a token number is unique per doctor per day
             `CREATE UNIQUE INDEX IF NOT EXISTS tokens_number_uq ON tokens (doctor_id, booking_date, token_number)`,
             // the same person cannot hold two live tokens with one doctor on one day
