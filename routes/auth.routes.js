@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     signup, verifyOtp, resendOtp, login, getProfile, updateProfile,
-    forgotPassword, resetPassword, changePassword, updateFcmToken,
+    forgotPassword, resetPassword, changePassword, updateFcmToken,deleteFcmToken
 } = require('../controllers/auth.controller');
 const verifyToken = require('../middleware/auth');
 const rateLimit = require('../middleware/rateLimit');
@@ -21,5 +21,6 @@ router.get('/profile', verifyToken, getProfile);
 router.put('/profile', verifyToken, updateProfile);
 router.put('/change-password', verifyToken, limited, changePassword);
 router.put('/fcm-token', verifyToken, updateFcmToken);
+router.delete('/fcm-token', verifyToken, deleteFcmToken);
 
 module.exports = router;
