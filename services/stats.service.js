@@ -11,11 +11,19 @@ async function managerStats(hospitalId, date) {
            FROM tokens WHERE hospital_id = $1 AND booking_date = $2 AND status = 'done' AND started_at IS NOT NULL`, [hospitalId, date]);
 
     const doctors = await pool.query(
-        `SELECT d.id, d.name, d.room, d.daily_token_limit, dep.name AS department_name,
+        `SELECT d.id, d.name, d.room, d.daily_token_limit, d.qualification, d.specialization,
+                COALESCE(d.schedule_from || ' - ' || d.schedule_to, '09:00 - 17:00') AS availability_hours,
+                dep.name AS department_name,
                 COALESCE(c.last_number, 0)::int AS issued,
                 (SELECT token_number FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving,
                 (SELECT id FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_token_id,
                 (SELECT patient_name FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_patient_name,
+                (SELECT patient_age FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_patient_age,
+                (SELECT relation FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_relation,
+                (SELECT priority FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_priority,
+                (SELECT priority_category FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_priority_category,
+                (SELECT notes FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_notes,
+                (SELECT u.phone FROM tokens tk JOIN users u ON u.id = tk.patient_id WHERE tk.doctor_id = d.id AND tk.booking_date = $2 AND tk.status = 'serving' LIMIT 1) AS now_serving_patient_phone,
                 (SELECT COUNT(*)::int FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'waiting') AS waiting
            FROM doctors d
            LEFT JOIN departments dep ON dep.id = d.department_id

@@ -10,11 +10,15 @@ const DEFAULT_AVG = () => Number(process.env.DEFAULT_CONSULT_MINUTES) || 10;
 
 // A token row joined with doctor / hospital / department names (used in API responses + notification text)
 const TOKEN_JOIN = `
-    SELECT t.*, d.name AS doctor_name, d.room, h.name AS hospital_name, dep.name AS department_name
+    SELECT t.*, d.name AS doctor_name, d.room, d.qualification, d.specialization,
+           COALESCE(d.schedule_from || ' - ' || d.schedule_to, '09:00 - 17:00') AS availability_hours,
+           h.name AS hospital_name, dep.name AS department_name,
+           u.phone AS account_phone
       FROM tokens t
       JOIN doctors d ON d.id = t.doctor_id
       JOIN hospitals h ON h.id = t.hospital_id
-      LEFT JOIN departments dep ON dep.id = t.department_id`;
+      LEFT JOIN departments dep ON dep.id = t.department_id
+      LEFT JOIN users u ON u.id = t.patient_id`;
 
 async function getToken(id, db = pool) {
     const { rows } = await db.query(`${TOKEN_JOIN} WHERE t.id = $1`, [id]);
@@ -83,7 +87,11 @@ async function refreshQueue(doctorId, date) {
 }
 
 async function loadDoctorOfHospital(doctorId, hospitalId) {
-    const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1 AND hospital_id = $2', [doctorId, hospitalId]);
+    const { rows } = await pool.query(
+        `SELECT d.*, dep.name AS department_name
+           FROM doctors d
+           LEFT JOIN departments dep ON dep.id = d.department_id
+          WHERE d.id = $1 AND d.hospital_id = $2`, [doctorId, hospitalId]);
     if (!rows[0]) throw new AppError(404, 'Doctor not found in your hospital');
     return rows[0];
 }
@@ -98,13 +106,27 @@ async function loadHospitalToken(tokenId, hospitalId) {
 async function getOverview(hospitalId, doctorId, date) {
     const doctor = await loadDoctorOfHospital(doctorId, hospitalId);
     const { rows } = await pool.query(
-        `SELECT t.*, u.phone AS account_phone FROM tokens t JOIN users u ON u.id = t.patient_id
+        `SELECT t.*, u.phone AS account_phone, d.name AS doctor_name, d.room, d.qualification,
+                dep.name AS department_name,
+                COALESCE(d.schedule_from || ' - ' || d.schedule_to, '09:00 - 17:00') AS availability_hours
+           FROM tokens t
+           JOIN users u ON u.id = t.patient_id
+           JOIN doctors d ON d.id = t.doctor_id
+           LEFT JOIN departments dep ON dep.id = t.department_id
           WHERE t.doctor_id = $1 AND t.booking_date = $2 ORDER BY t.token_number`,
         [doctorId, date]
     );
     const count = (s) => rows.filter((t) => t.status === s).length;
     return {
-        doctor_id: doctorId, doctor_name: doctor.name, room: doctor.room, date,
+        doctor_id: doctorId,
+        doctor_name: doctor.name,
+        qualification: doctor.qualification,
+        specialization: doctor.specialization,
+        department_name: doctor.department_name,
+        room: doctor.room,
+        availability_hours: doctor.schedule_from && doctor.schedule_to ? `${doctor.schedule_from} - ${doctor.schedule_to}` : '09:00 - 17:00',
+        schedule_days: doctor.schedule_days,
+        date,
         avg_consult_minutes: doctor.avg_consult_minutes,
         now_serving: rows.find((t) => t.status === 'serving') || null,
         waiting: sortWaiting(rows.filter((t) => t.status === 'waiting')),
