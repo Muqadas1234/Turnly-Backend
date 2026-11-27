@@ -16,5 +16,6 @@ router.post('/tokens/:id/cancel', h(q.cancel));
 router.patch('/tokens/:id/priority', h(q.priority));
 router.get('/:doctorId', h(q.overview));
 router.post('/:doctorId/call-next', h(q.callNext));
+router.post('/:doctorId/complete-current', h(q.completeCurrent));
 
 module.exports = router;

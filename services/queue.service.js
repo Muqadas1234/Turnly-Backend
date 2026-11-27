@@ -160,6 +160,17 @@ async function complete(hospitalId, tokenId) {
     return getToken(tokenId);
 }
 
+// Complete whichever token is currently being served for a doctor
+async function completeCurrent(hospitalId, doctorId, date) {
+    await loadDoctorOfHospital(doctorId, hospitalId);
+    const { rows } = await pool.query(
+        `SELECT id FROM tokens WHERE doctor_id = $1 AND booking_date = $2 AND status = 'serving' LIMIT 1`,
+        [doctorId, date]
+    );
+    if (!rows[0]) throw new AppError(404, 'No patient is currently being served for this doctor', 'NOT_SERVING');
+    return complete(hospitalId, rows[0].id);
+}
+
 async function skip(hospitalId, tokenId) {
     const t = await loadHospitalToken(tokenId, hospitalId);
     const { rows } = await pool.query(
@@ -213,4 +224,4 @@ async function managerCancel(hospitalId, tokenId) {
     return full;
 }
 
-module.exports = { TOKEN_JOIN, getToken, emitTokenUpdate, refreshQueue, getOverview, callNext, complete, skip, recall, setPriority, managerCancel };
+module.exports = { TOKEN_JOIN, getToken, emitTokenUpdate, refreshQueue, getOverview, callNext, complete, completeCurrent, skip, recall, setPriority, managerCancel };

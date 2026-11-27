@@ -14,6 +14,8 @@ async function managerStats(hospitalId, date) {
         `SELECT d.id, d.name, d.room, d.daily_token_limit, dep.name AS department_name,
                 COALESCE(c.last_number, 0)::int AS issued,
                 (SELECT token_number FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving,
+                (SELECT id FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_token_id,
+                (SELECT patient_name FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'serving' LIMIT 1) AS now_serving_patient_name,
                 (SELECT COUNT(*)::int FROM tokens WHERE doctor_id = d.id AND booking_date = $2 AND status = 'waiting') AS waiting
            FROM doctors d
            LEFT JOIN departments dep ON dep.id = d.department_id

@@ -27,6 +27,10 @@ const callNext = async (req, res) => {
 };
 
 const complete = async (req, res) => res.json({ success: true, message: 'Token marked as done', token: await queue.complete(req.hospital.id, needId(req.params.id, 'token id')) });
+const completeCurrent = async (req, res) => {
+    const token = await queue.completeCurrent(req.hospital.id, needId(req.params.doctorId, 'doctor id'), dateOf(req.body && req.body.date));
+    res.json({ success: true, message: `Token #${token.token_number} marked as done`, token });
+};
 const skip = async (req, res) => res.json({ success: true, message: 'Token skipped', token: await queue.skip(req.hospital.id, needId(req.params.id, 'token id')) });
 const recall = async (req, res) => res.json({ success: true, message: 'Token put back in the queue', token: await queue.recall(req.hospital.id, needId(req.params.id, 'token id')) });
 const cancel = async (req, res) => res.json({ success: true, message: 'Token cancelled', token: await queue.managerCancel(req.hospital.id, needId(req.params.id, 'token id')) });
@@ -38,4 +42,4 @@ const priority = async (req, res) => {
     res.json({ success: true, message: approved ? 'Priority approved' : 'Priority rejected', token: await queue.setPriority(req.hospital.id, needId(req.params.id, 'token id'), approved) });
 };
 
-module.exports = { stats, overview, callNext, complete, skip, recall, cancel, priority };
+module.exports = { stats, overview, callNext, complete, completeCurrent, skip, recall, cancel, priority };
