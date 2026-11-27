@@ -150,7 +150,7 @@ const setupDatabase = async () => {
             CREATE TABLE IF NOT EXISTS tokens (
                 id              SERIAL PRIMARY KEY,
                 token_number    INTEGER NOT NULL,
-                patient_id      INTEGER REFERENCES users(id),
+                patient_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 doctor_id       INTEGER REFERENCES doctors(id),
                 hospital_id     INTEGER REFERENCES hospitals(id),
                 department_id   INTEGER REFERENCES departments(id),
@@ -266,6 +266,16 @@ const setupDatabase = async () => {
             ON CONFLICT (fcm_token) DO NOTHING;
         `);
         await pool.query(`CREATE INDEX IF NOT EXISTS user_devices_user_idx ON user_devices (user_id)`);
+
+        // Ensure tokens.patient_id cascades on user deletion
+        await pool.query(`
+            DO $$
+            BEGIN
+                ALTER TABLE tokens DROP CONSTRAINT IF EXISTS tokens_patient_id_fkey;
+                ALTER TABLE tokens ADD CONSTRAINT tokens_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE;
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END $$;
+        `);
         const indexes = [
             
             // a token number is unique per doctor per day
