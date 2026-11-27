@@ -87,6 +87,8 @@ const listHospitalDoctors = async (req, res) => {
     const { rows } = await pool.query(
         `SELECT d.id, d.hospital_id, d.department_id, dep.name AS department_name, d.name, d.specialization, d.qualification,
                 d.experience_years, d.photo_url, d.avg_consult_minutes, d.schedule_days, d.schedule_from, d.schedule_to,
+                d.is_available,
+                COALESCE(d.availability_hours, array_to_string(d.schedule_days, ', ') || ' · ' || d.schedule_from || ' - ' || d.schedule_to, 'Mon-Sat · 09:00 - 17:00') AS availability_hours,
                 d.room, d.daily_token_limit, COALESCE(c.last_number, 0)::int AS tokens_issued,
                 GREATEST(d.daily_token_limit - COALESCE(c.last_number, 0), 0)::int AS tokens_left, $2::date::text AS availability_date
            FROM doctors d
