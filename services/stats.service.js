@@ -31,6 +31,20 @@ async function managerStats(hospitalId, date) {
           WHERE d.hospital_id = $1 AND d.is_available
           ORDER BY dep.name, d.name`, [hospitalId, date]);
 
+    // All tokens for this hospital on this date
+    const tokens = await pool.query(
+        `SELECT t.*, u.phone AS account_phone, d.name AS doctor_name, d.qualification, d.specialization, d.room,
+                dep.name AS department_name,
+                COALESCE(d.schedule_from || ' - ' || d.schedule_to, '09:00 - 17:00') AS availability_hours
+           FROM tokens t
+           JOIN doctors d ON d.id = t.doctor_id
+           JOIN users u ON u.id = t.patient_id
+           LEFT JOIN departments dep ON dep.id = t.department_id
+          WHERE t.hospital_id = $1 AND t.booking_date = $2
+          ORDER BY CASE t.status WHEN 'serving' THEN 1 WHEN 'waiting' THEN 2 WHEN 'skipped' THEN 3 ELSE 4 END, t.token_number`,
+        [hospitalId, date]
+    );
+
     // tokens per hour (for the dashboard chart)
     const hourly = await pool.query(
         `SELECT EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE $3)::int AS hour, COUNT(*)::int AS n
@@ -44,6 +58,7 @@ async function managerStats(hospitalId, date) {
         avg_consult_minutes: avg.rows[0].m,
         counts,
         doctors: doctors.rows,
+        tokens: tokens.rows,
         tokens_by_hour: hourly.rows,
     };
 }
